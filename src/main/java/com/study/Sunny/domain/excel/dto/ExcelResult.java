@@ -3,18 +3,42 @@ package com.study.Sunny.domain.excel.dto;
 import lombok.Data;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Data
 public class ExcelResult {
 
-    private boolean success;
+    private boolean success = true;
+    private List<RowResult> results = new ArrayList<>();
+
+    @Data
+    public static class RowResult {
+        private int rowNum;
+        private ExcelData excelData;
+        private Map<String, Object> status = new HashMap<>();
+
+        public RowResult(ExcelData excelData) {
+             if(excelData != null){
+                this.rowNum = excelData.getRowNum();
+                this.excelData = excelData;
+            }
+        }
+
+        public void addResult(String field, String code, String message) {
+            if(!"".equals(code)){
+                Map<String, String> detail = new HashMap<>();
+                detail.put("code", code);
+                detail.put("message", message);
+                this.status.put(field, detail);
+            }
+        }
+    }
+
+    /*private boolean success = true;
     private List<ExcelData> rawData = new ArrayList<>();
     private List<RowError> errors = new ArrayList<>();
-
-    public ExcelResult(boolean success) {
-        this.success = success;
-    }
 
     public void addError(RowError error) {
         this.errors.add(error);
@@ -85,6 +109,6 @@ public class ExcelResult {
 
         public void setCity(String city) {
             this.city = city;
-        }*/
-    }
+        }
+    }*/
 }

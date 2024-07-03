@@ -18,9 +18,9 @@ public class ExcelService {
     /**
      * 엑셀 업로드
      */
-    public ExcelResult excelUpload(MultipartFile file) throws Exception {
+    public ExcelResult excelUpload(MultipartFile file) {
         // success true로 생성. 오류나면 false로 바꿈
-        ExcelResult result = new ExcelResult(true);
+        ExcelResult result = new ExcelResult();
         // id는 중복 X
         Map<String, Integer> uniqueIds = new HashMap<>();
         // 파일 Original 이름의 파일 확장자만 가져오기
@@ -30,50 +30,39 @@ public class ExcelService {
             // 엑셀 데이터 ExcelData에 저장
             List<ExcelData> excelDataList = this.excelToDatas(inputStream, fileExtsn);
             // 결과에 엑셀데이터(raw) 저장
-            result.setRawData(excelDataList);
+            //result.setRawData(excelDataList);
 
             // validation
-            for (int i = 0; i < excelDataList.size(); i++) {
-                ExcelData excelData = excelDataList.get(i);
-                ExcelResult.RowError rowError = new ExcelResult.RowError(i + 1);
+            for (ExcelData excelData : excelDataList) {
+                ExcelResult.RowResult rowResult = new ExcelResult.RowResult(excelData);
 
                 if (excelData.getId() == null || excelData.getId().isEmpty()) {
-                    rowError.addMessage("아이디는 필수 항목입니다.");
-                    rowError.setId("EMPTY");
+                    rowResult.addResult("id", "EMPTY", "id는 필수 값입니다.");
                 } else if (uniqueIds.containsKey(excelData.getId())) {
-                    rowError.addMessage("아이디가 중복되었습니다. (중복 행: " + uniqueIds.get(excelData.getId()) + ")");
-                    //String idStatus = rowError.getId();
-                    //rowError.setId(idStatus+" DUPLICATE");
-                    rowError.setId("DUPLICATE");
+                    int duplicateRow = uniqueIds.get(excelData.getId());
+                    rowResult.addResult("id", "DUPLICATE", duplicateRow + "번째 아이디와 중복됩니다.");
                 } else {
-                    uniqueIds.put(excelData.getId(), i + 1);
+                    uniqueIds.put(excelData.getId(), excelData.getRowNum());
                 }
 
                 if (excelData.getName() == null || excelData.getName().isEmpty()) {
-                    rowError.addMessage("이름은 필수 항목입니다.");
-                    //String nameStatus = rowError.getName();
-                    //rowError.setId(nameStatus+" EMPTY");
-                    rowError.setName("EMPTY");
+                    rowResult.addResult("name", "EMPTY", "이름은 필수 값입니다.");
                 }
 
                 if (excelData.getEmail() == null || excelData.getEmail().isEmpty()) {
-                    rowError.addMessage("이메일은 필수 항목입니다.");
-                    rowError.setEmail("EMPTY");
+                    rowResult.addResult("email", "EMPTY", "이메일은 필수 값입니다.");
                 } else if (!excelData.getEmail().matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
-                    rowError.addMessage("유효한 이메일 형식이어야 합니다.");
-                    rowError.setEmail("INVALID_FORMAT");
+                    rowResult.addResult("email", "INVALID_FORMAT", "이메일 형식이 아닙니다.");
                 }
 
                 if (excelData.getMobilePhone() == null || excelData.getMobilePhone().isEmpty()) {
-                    rowError.addMessage("휴대폰 번호는 필수 항목입니다.");
-                    rowError.setMobile("EMPTY");
+                    rowResult.addResult("mobilePhone", "EMPTY", "휴대폰 번호는 필수 값입니다.");
                 } else if (!excelData.getMobilePhone().matches("\\d{10,11}")) {
-                    rowError.addMessage("유효한 휴대폰 번호 형식이어야 합니다.");
-                    rowError.setMobile("INVALID_FORMAT");
+                    rowResult.addResult("mobilePhone", "INVALID_FORMAT", "휴대폰번호 형식이 아닙니다.");
                 }
 
-                if (!rowError.getMessages().isEmpty()) {
-                    result.addError(rowError);
+                result.getResults().add(rowResult);
+                if (!rowResult.getStatus().isEmpty()) {
                     result.setSuccess(false);
                 }
             }
@@ -83,9 +72,9 @@ public class ExcelService {
             }
         } catch (Exception e) {
             result.setSuccess(false);
-            ExcelResult.RowError error = new ExcelResult.RowError(-1);
-            error.addMessage("파일 처리 실패: " + e.getMessage());
-            result.addError(error);
+            ExcelResult.RowResult error = new ExcelResult.RowResult(null);
+            error.addResult("file", "PROCESSING_FAILED", "파일 처리 실패");
+            result.getResults().add(error);
         }
 
         return result;
@@ -107,11 +96,19 @@ public class ExcelService {
             List<ExcelData> excelDataList = new ArrayList<>();
 
             // 데이터가 시작되는 rowNumber -> 나중에 파라미터로 가져와서 초기 세팅할 수 있음
-            int rowNumber = 1; // 테스트 파일에는 header가 있으므로 1
+            int rowNumber = 0; // 테스트 파일에는 header 시작위치
+            int headerSize = 1; // 테스트 파일에는 header가 1
 
             // 다음 row 데이터 있을때까지
             while (rows.hasNext()) {
                 Row currentRow = rows.next();
+
+                // header row 지나치기
+                if (rowNumber < headerSize) {
+                    rowNumber++;
+                    continue;
+                }
+
                 ExcelData excelData = new ExcelData();
 
                 // 데이터 rownum 세팅

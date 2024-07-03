@@ -5,7 +5,7 @@ import lombok.Data;
 @Data
 public class ExcelData
 {
-    private Integer rowNum;
+    private int rowNum;
     private String id;
     private String name;
     private String email;
